@@ -1,0 +1,148 @@
+:root {
+  --app-bg: #0f172a;
+  --card-bg: #1e293b;
+  --accent: #38bdf8;
+  --wicket: #ef4444;
+  --boundary: #22c55e;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+}
+
+.scoring-app-container {
+  background-color: var(--app-bg);
+  min-height: 100vh;
+  color: var(--text-primary);
+  padding: 15px;
+  font-family: 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Score Header */
+.score-header {
+  text-align: center;
+  padding: 20px 0;
+  border-bottom: 1px solid #334155;
+}
+.match-label {
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  color: var(--accent);
+  font-weight: bold;
+}
+.main-display .runs {
+  font-size: 3rem;
+  font-weight: 800;
+}
+.main-display .overs {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin-left: 10px;
+}
+
+/* Timeline */
+.timeline-container {
+  margin: 15px 0;
+  overflow-x: auto;
+  padding-bottom: 5px;
+}
+.ball-strip {
+  display: flex;
+  gap: 8px;
+}
+.ball-item {
+  min-width: 35px;
+  height: 35px;
+  background: #334155;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+.ball-item.wicket { background: var(--wicket); }
+.ball-item.boundary { border: 2px solid var(--boundary); }
+
+/* Dashboard Cards */
+.dashboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.dashboard-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.player-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.player-line.on-strike .p-name {
+  color: var(--accent);
+  font-weight: bold;
+}
+.p-name { color: var(--text-secondary); }
+.p-score { font-family: monospace; font-size: 1.1rem; }
+
+/* Control Buttons */
+.controls-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.run-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.control-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 15px;
+  font-weight: bold;
+  font-size: 1.2rem;
+  transition: transform 0.1s;
+}
+.control-btn:active { transform: scale(0.95); }
+
+.run-btn { background: #334155; color: white; height: 65px; }
+.r-4 { color: var(--boundary); border: 1px solid var(--boundary); }
+.r-6 { background: var(--boundary); color: white; }
+
+.extra-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.extra-btn { background: #475569; font-size: 0.9rem; padding: 12px; }
+.wicket-btn { background: var(--wicket); color: white; grid-column: span 1; }
+
+.utility-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+}
+.util-btn { background: #1e293b; border: 1px solid #475569; font-size: 0.9rem; }
+.undo { background: #94a3b8; color: #0f172a; }
+
+/* Modal Styles */
+.custom-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.custom-modal {
+  background: var(--card-bg);
+  padding: 25px;
+  border-radius: 15px;
+  width: 100%;
+  max-width: 400px;
+}
