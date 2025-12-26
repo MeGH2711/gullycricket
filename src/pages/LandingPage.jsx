@@ -1,8 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-// Importing icons from 'react-icons'
-import { MdSportsCricket, MdHistory, MdPeopleOutline, MdAddCircleOutline } from "react-icons/md";
-import { FaTrophy } from "react-icons/fa";
+// Add MdBarChart to imports
+import { MdSportsCricket, MdHistory, MdPeopleOutline, MdAddCircleOutline, MdBarChart } from "react-icons/md";
 import "../App.css";
 
 const LandingPage = () => {
@@ -25,7 +24,7 @@ const LandingPage = () => {
             {/* --- Main Action Grid --- */}
             <div style={styles.grid}>
 
-                {/* Card 1: New Match (Featured) */}
+                {/* Card 1: New Match */}
                 <div
                     className="card hover-card"
                     onClick={() => navigate("/new-match")}
@@ -41,11 +40,7 @@ const LandingPage = () => {
                 </div>
 
                 {/* Card 2: Match History */}
-                <div
-                    className="card hover-card"
-                    onClick={() => navigate("/matches")}
-                    style={styles.card}
-                >
+                <div className="card hover-card" onClick={() => navigate("/matches")} style={styles.card}>
                     <div style={{ ...styles.iconBox, background: '#3b82f626', color: '#3b82f6' }}>
                         <MdHistory size={32} />
                     </div>
@@ -56,17 +51,24 @@ const LandingPage = () => {
                 </div>
 
                 {/* Card 3: Players */}
-                <div
-                    className="card hover-card"
-                    onClick={() => navigate("/players")}
-                    style={styles.card}
-                >
+                <div className="card hover-card" onClick={() => navigate("/players")} style={styles.card}>
                     <div style={{ ...styles.iconBox, background: '#a855f726', color: '#a855f7' }}>
                         <MdPeopleOutline size={32} />
                     </div>
                     <div style={styles.cardContent}>
                         <h3 style={styles.cardTitle}>Manage Squad</h3>
                         <p style={styles.cardText}>Add new players or update your team roster.</p>
+                    </div>
+                </div>
+
+                {/* --- NEW CARD: Player Stats --- */}
+                <div className="card hover-card" onClick={() => navigate("/stats")} style={styles.card}>
+                    <div style={{ ...styles.iconBox, background: '#f59e0b26', color: '#f59e0b' }}>
+                        <MdBarChart size={32} />
+                    </div>
+                    <div style={styles.cardContent}>
+                        <h3 style={styles.cardTitle}>Player Stats</h3>
+                        <p style={styles.cardText}>View total runs and wickets across all matches.</p>
                     </div>
                 </div>
 
@@ -83,7 +85,7 @@ const LandingPage = () => {
     );
 };
 
-// Internal Styling Object
+// Styles (Same as before)
 const styles = {
     container: {
         minHeight: '80vh',
@@ -103,7 +105,7 @@ const styles = {
         width: '80px',
         height: '80px',
         borderRadius: '50%',
-        background: 'var(--accent)', // Uses your green from App.css
+        background: 'var(--accent)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
