@@ -29,7 +29,7 @@ const LiveScoring = () => {
     const [modalContext, setModalContext] = useState("");
     const [selectedPlayerId, setSelectedPlayerId] = useState("");
 
-    // --- Run Out State ---
+    // --- Run Out / Retire State ---
     const [runOutWho, setRunOutWho] = useState("striker");
     const [nextStrikerChoice, setNextStrikerChoice] = useState("new");
     const [runOutBallType, setRunOutBallType] = useState("legal"); // 'legal', 'wide', 'noball'
@@ -170,6 +170,25 @@ const LiveScoring = () => {
         wickets = 0
     } = match;
 
+    // --- NEW CALCULATIONS (CRR, RRR, Needs) ---
+    const totalBallsBowled = (currentOver * 6) + currentBall;
+    const totalBallsInInning = (match.overs || 0) * 6;
+
+    // Current Run Rate
+    const crr = totalBallsBowled > 0
+        ? ((totalRuns / totalBallsBowled) * 6).toFixed(2)
+        : "0.00";
+
+    // 2nd Innings Specifics
+    const runsNeeded = (match.target || 0) - totalRuns;
+    const ballsRemaining = totalBallsInInning - totalBallsBowled;
+
+    // Required Run Rate (only if balls are remaining)
+    const rrr = (ballsRemaining > 0)
+        ? ((runsNeeded / ballsRemaining) * 6).toFixed(2)
+        : "0.00";
+    // ------------------------------------------
+
     const formatOvers = (balls) => {
         const oversCount = Math.floor(balls / 6);
         const remainingBalls = balls % 6;
@@ -276,7 +295,7 @@ const LiveScoring = () => {
     const openModal = (context) => {
         setModalContext(context);
         setSelectedPlayerId("");
-        setRunOutWho("striker");
+        setRunOutWho("striker"); // Default to striker for Runout OR Retire
         setNextStrikerChoice("new");
 
         // Reset Run Out specific state
@@ -331,6 +350,41 @@ const LiveScoring = () => {
                 else { nextS = survivingBatsmanId; nextNS = selectedPlayerId; }
                 await updateDoc(matchRef, { striker: nextS, nonStriker: nextNS });
             }
+
+        } else if (modalContext === "retireHurt") {
+            // --- RETIRE HURT LOGIC (TREATED AS OUT) ---
+            const isStrikerRetiring = runOutWho === "striker";
+            const outBatsmanId = isStrikerRetiring ? striker : nonStriker;
+            const survivingBatsmanId = isStrikerRetiring ? nonStriker : striker;
+
+            // 1. Mark player as OUT
+            await updateDoc(doc(db, `matches/${matchId}/players/${outBatsmanId}`), { isOut: true });
+
+            // 2. Update Match: Increment Wickets + Swap Players
+            // Note: We do NOT increment balls or overs (as per requirement)
+            const updateData = {
+                wickets: increment(1)
+            };
+
+            if (selectedPlayerId) {
+                // Normal substitution
+                if (isStrikerRetiring) updateData.striker = selectedPlayerId;
+                else updateData.nonStriker = selectedPlayerId;
+            } else {
+                // No replacement available (All Out / Last Man Standing logic)
+                if (isGoingSoloNext) {
+                    // Survivor plays solo
+                    updateData.striker = survivingBatsmanId;
+                    updateData.nonStriker = "";
+                } else if (isTeamAllOut) {
+                    // Everyone out
+                    updateData.striker = "";
+                    // Clear non-striker too if it was solo play, otherwise it might be cleared by "isGoingSoloNext"
+                    if (!isSoloPlay) updateData.nonStriker = "";
+                }
+            }
+
+            await updateDoc(matchRef, updateData);
 
         } else if (modalContext === "newBowler") {
             await updateDoc(matchRef, { currentBowler: selectedPlayerId });
@@ -387,7 +441,7 @@ const LiveScoring = () => {
         setMatch({ id: snap.id, ...snap.data() });
     };
 
-    const showDropdown = modalContext === "newBowler" || (!isGoingSoloNext && !isTeamAllOut && (modalContext === "wicket" || modalContext === "runout"));
+    const showDropdown = modalContext === "newBowler" || modalContext === "retireHurt" || (!isGoingSoloNext && !isTeamAllOut && (modalContext === "wicket" || modalContext === "runout"));
 
     return (
         <div className="scoring-app-container">
@@ -399,15 +453,45 @@ const LiveScoring = () => {
                     <span className="runs">{totalRuns}-{wickets}</span>
                     <span className="overs">({currentOver}.{currentBall})</span>
                 </div>
+
+                {/* --- STATS DISPLAY --- */}
+                <div className="stats-display" style={{ marginTop: '10px', fontSize: '0.9rem', color: '#f0f0f0', textAlign: 'center' }}>
+                    <span className="me-3">CRR: <strong>{crr}</strong></span>
+
+                    {match?.innings === 2 && (
+                        <>
+                            <span className="me-3" style={{ marginLeft: '15px' }}>RRR: <strong>{rrr}</strong></span>
+                            <div style={{ marginTop: '5px', color: '#ffc107', fontWeight: 'bold' }}>
+                                Need {runsNeeded} runs in {ballsRemaining} balls
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
             <div className="timeline-container">
                 <div className="ball-strip">
-                    {ballLog.slice(-10).reverse().map((b, i) => (
-                        <div key={i} className={`ball-item ${b.wicket ? 'wicket' : b.runs >= 4 ? 'boundary' : ''}`}>
-                            {getBallDisplay(b)}
-                        </div>
-                    ))}
+                    {/* UPDATED TIMELINE WITH OVER SEPARATORS */}
+                    {ballLog.slice(-10).reverse().map((b, i, arr) => {
+                        // Check if the next ball (which is older in time) has a different over number
+                        const showSeparator = i < arr.length - 1 && b.over !== arr[i + 1].over;
+                        return (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
+                                <div className={`ball-item ${b.wicket ? 'wicket' : b.runs >= 4 ? 'boundary' : ''}`}>
+                                    {getBallDisplay(b)}
+                                </div>
+                                {showSeparator && (
+                                    <div style={{
+                                        width: '2px',
+                                        height: '24px',
+                                        backgroundColor: '#64748b',
+                                        margin: '0 8px',
+                                        opacity: 0.5
+                                    }}></div>
+                                )}
+                            </div>
+                        );
+                    })}
                     {ballLog.length === 0 && <span className="empty-msg">No balls recorded</span>}
                 </div>
             </div>
@@ -453,6 +537,7 @@ const LiveScoring = () => {
                 <div className="utility-grid">
                     <button className="control-btn util-btn" onClick={() => recordBall(1, false, false, null, "", true)}>1 (No Swap)</button>
                     <button className="control-btn util-btn undo" onClick={undoLastBall} disabled={ballHistory.length === 0}>Undo</button>
+                    <button className="control-btn util-btn" style={{ backgroundColor: '#64748b' }} onClick={() => openModal("retireHurt")}>Retire Hurt</button>
                 </div>
             </div>
 
@@ -497,8 +582,10 @@ const LiveScoring = () => {
                             {modalContext === "newBowler" && "Change Bowler"}
                             {modalContext === "wicket" && (isTeamAllOut ? "All Out!" : isGoingSoloNext ? "Last Man Standing" : "New Batsman")}
                             {modalContext === "runout" && "Run Out Details"}
+                            {modalContext === "retireHurt" && "Retire Out"}
                         </h4>
 
+                        {/* --- RUN OUT SECTION --- */}
                         {modalContext === "runout" && (
                             <>
                                 <div className="mb-3 text-start">
@@ -518,7 +605,6 @@ const LiveScoring = () => {
                                         </div>
                                     )}
                                 </div>
-
                                 <div className="mb-3 text-start border-top pt-3">
                                     <label className="form-label fw-bold">2. Delivery Details</label>
                                     <div className="d-flex gap-3 mb-2">
@@ -544,13 +630,40 @@ const LiveScoring = () => {
                             </>
                         )}
 
+                        {/* --- RETIRE HURT UI --- */}
+                        {modalContext === "retireHurt" && (
+                            <div className="mb-3 text-start">
+                                <label className="form-label fw-bold">Who is retiring?</label>
+                                {isSoloPlay ? (
+                                    <div className="alert alert-warning">Solo Batsman <strong>{strikerPlayer?.name}</strong> is retiring.</div>
+                                ) : (
+                                    <div className="d-flex gap-3 mb-3">
+                                        <div className="form-check">
+                                            <input className="form-check-input" type="radio" name="whoRetire" checked={runOutWho === "striker"} onChange={() => setRunOutWho("striker")} />
+                                            <label className="form-check-label">{strikerPlayer?.name} (Striker)</label>
+                                        </div>
+                                        <div className="form-check">
+                                            <input className="form-check-input" type="radio" name="whoRetire" checked={runOutWho === "nonStriker"} onChange={() => setRunOutWho("nonStriker")} />
+                                            <label className="form-check-label">{nonStrikerPlayer?.name} (Non-Striker)</label>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="alert alert-secondary mt-2" style={{ fontSize: '0.9rem' }}>
+                                    <strong>Note:</strong> Player will be marked <strong>OUT</strong>. No ball will be counted.
+                                </div>
+                            </div>
+                        )}
+
                         {isGoingSoloNext && (modalContext === "wicket" || modalContext === "runout") && (
                             <div className="alert alert-info">No more players left! The survivor will play <strong>Solo</strong>.</div>
                         )}
 
                         {showDropdown && (
                             <>
-                                <label className="form-label fw-bold">{modalContext === "runout" ? "3. Select New Batsman" : "Select Player"}</label>
+                                <label className="form-label fw-bold">
+                                    {modalContext === "runout" ? "3. Select New Batsman" :
+                                        modalContext === "retireHurt" ? "Select Replacement" : "Select Player"}
+                                </label>
                                 <select className="form-select mb-3" value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)}>
                                     <option value="">Select Player</option>
                                     {modalContext === "newBowler"
