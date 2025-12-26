@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, getDocs, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
-// Added MdSportsBaseball for the 'Bowl' icon
 import {
     MdSportsCricket,
     MdSportsBaseball,
@@ -11,7 +10,8 @@ import {
     MdCheckCircle,
     MdRadioButtonUnchecked,
     MdPlayArrow,
-    MdSportsScore
+    MdSportsScore,
+    MdPerson // Added Icon
 } from "react-icons/md";
 import "../App.css";
 
@@ -23,6 +23,9 @@ const MatchSetup = () => {
     const [overs, setOvers] = useState(6);
     const [tossWinner, setTossWinner] = useState("");
     const [tossDecision, setTossDecision] = useState("");
+
+    // --- NEW: Jacker State ---
+    const [jackerId, setJackerId] = useState("");
 
     const [allPlayers, setAllPlayers] = useState([]);
     const [teamAPlayers, setTeamAPlayers] = useState([]);
@@ -36,18 +39,47 @@ const MatchSetup = () => {
         fetchPlayers();
     }, []);
 
+    // --- NEW: Handle Jacker Selection ---
+    const handleJackerSelect = (e) => {
+        const selectedId = e.target.value;
+        setJackerId(selectedId);
+
+        if (!selectedId) return;
+
+        const playerObj = allPlayers.find(p => p.id === selectedId);
+        if (!playerObj) return;
+
+        // Auto-add to Team A if not present
+        setTeamAPlayers(prev =>
+            prev.some(p => p.id === selectedId) ? prev : [...prev, playerObj]
+        );
+
+        // Auto-add to Team B if not present
+        setTeamBPlayers(prev =>
+            prev.some(p => p.id === selectedId) ? prev : [...prev, playerObj]
+        );
+    };
+
     const togglePlayer = (player, team) => {
         const isTeamA = team === "A";
         const otherTeam = isTeamA ? teamBPlayers : teamAPlayers;
         const setTeam = isTeamA ? setTeamAPlayers : setTeamBPlayers;
 
-        if (otherTeam.some(p => p.id === player.id)) return; // Prevent duplicates
+        const isCurrentlyInTeam = (isTeamA ? teamAPlayers : teamBPlayers).some(p => p.id === player.id);
 
-        setTeam(prev =>
-            prev.some(p => p.id === player.id)
-                ? prev.filter(p => p.id !== player.id)
-                : [...prev, player]
-        );
+        if (isCurrentlyInTeam) {
+            // Removing player
+            setTeam(prev => prev.filter(p => p.id !== player.id));
+            // If we remove the Jacker manually, clear the Jacker selection
+            if (player.id === jackerId) setJackerId("");
+        } else {
+            // Adding player
+            // CONSTRAINT: Allow if NOT in other team OR if they are the designated Jacker
+            if (player.id !== jackerId && otherTeam.some(p => p.id === player.id)) {
+                return; // Block duplicates unless Jacker
+            }
+            setTeam(prev => [...prev, player]);
+        }
     };
 
     const createMatch = async () => {
@@ -60,6 +92,9 @@ const MatchSetup = () => {
             });
 
             const matchPlayersRef = collection(db, `matches/${matchRef.id}/players`);
+
+            // Note: The Jacker will be added twice (once for A, once for B) which is correct behavior
+            // They will have unique IDs within the match subcollection, allowing separate stats for each team.
             const addPlayerPromises = [
                 ...teamAPlayers.map(p => addDoc(matchPlayersRef, { name: p.name, team: "A", runs: 0, balls: 0, wickets: 0 })),
                 ...teamBPlayers.map(p => addDoc(matchPlayersRef, { name: p.name, team: "B", runs: 0, balls: 0, wickets: 0 }))
@@ -81,8 +116,6 @@ const MatchSetup = () => {
                     margin: 0 auto;
                     padding-bottom: 4rem;
                 }
-
-                /* Section Headers */
                 .section-header {
                     display: flex;
                     align-items: center;
@@ -94,8 +127,6 @@ const MatchSetup = () => {
                     letter-spacing: 1px;
                     font-weight: 600;
                 }
-
-                /* Cards */
                 .setup-card {
                     background: linear-gradient(145deg, var(--bg-input) 0%, rgba(255,255,255,0.02) 100%);
                     border: 1px solid var(--border);
@@ -104,18 +135,14 @@ const MatchSetup = () => {
                     margin-bottom: 2rem;
                     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
                 }
-
-                /* Inputs */
-                .input-group {
-                    margin-bottom: 1.5rem;
-                }
+                .input-group { margin-bottom: 1.5rem; }
                 .label-text {
                     display: block;
                     margin-bottom: 0.5rem;
                     color: var(--text-muted);
                     font-size: 0.9rem;
                 }
-                .styled-input {
+                .styled-input, .styled-select {
                     width: 100%;
                     background: rgba(0,0,0,0.2);
                     border: 1px solid var(--border);
@@ -126,12 +153,11 @@ const MatchSetup = () => {
                     outline: none;
                     transition: all 0.2s;
                 }
-                .styled-input:focus {
+                .styled-select option { background: #1e293b; }
+                .styled-input:focus, .styled-select:focus {
                     border-color: var(--accent);
                     background: rgba(34, 197, 94, 0.05);
                 }
-
-                /* Toss Selection Grid */
                 .selection-grid {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
@@ -145,8 +171,6 @@ const MatchSetup = () => {
                     cursor: pointer;
                     transition: all 0.2s;
                     color: var(--text-muted);
-                    
-                    /* Flexbox for centering Icon + Text */
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -159,11 +183,6 @@ const MatchSetup = () => {
                     font-weight: 600;
                     box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
                 }
-                .selection-btn:hover:not(.active) {
-                    background: rgba(255,255,255,0.05);
-                }
-
-                /* Squad Lists */
                 .squad-columns {
                     display: grid;
                     grid-template-columns: 1fr;
@@ -172,7 +191,6 @@ const MatchSetup = () => {
                 @media(min-width: 768px) {
                     .squad-columns { grid-template-columns: 1fr 1fr; }
                 }
-
                 .roster-box {
                     background: rgba(0,0,0,0.2);
                     border: 1px solid var(--border);
@@ -181,7 +199,6 @@ const MatchSetup = () => {
                     overflow-y: auto;
                     padding: 0.5rem;
                 }
-                
                 .player-item {
                     display: flex;
                     align-items: center;
@@ -193,23 +210,25 @@ const MatchSetup = () => {
                     transition: all 0.2s;
                     border: 1px solid transparent;
                 }
-
-                .player-item:hover {
-                    background: rgba(255,255,255,0.03);
-                }
-
+                .player-item:hover { background: rgba(255,255,255,0.03); }
                 .player-item.selected {
                     background: rgba(34, 197, 94, 0.1);
                     border-color: rgba(34, 197, 94, 0.3);
                 }
-
                 .player-item.disabled {
                     opacity: 0.3;
                     pointer-events: none;
                     text-decoration: line-through;
                 }
-
-                /* Start Button */
+                .jacker-badge {
+                    font-size: 0.7rem;
+                    background: #f59e0b;
+                    color: black;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    margin-left: 8px;
+                }
                 .start-btn {
                     width: 100%;
                     padding: 1rem;
@@ -276,50 +295,56 @@ const MatchSetup = () => {
                 </div>
             </div>
 
-            {/* --- 2. Toss Section --- */}
+            {/* --- 2. Jacker Selection (NEW) --- */}
+            <div className="section-header">
+                <MdPerson size={18} /> Jacker (Optional)
+            </div>
+            <div className="setup-card" style={{ borderColor: jackerId ? '#f59e0b' : 'var(--border)' }}>
+                <label className="label-text">Select one player to play for BOTH teams:</label>
+                <select
+                    className="styled-select"
+                    value={jackerId}
+                    onChange={handleJackerSelect}
+                >
+                    <option value="">-- No Jacker --</option>
+                    {allPlayers.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </select>
+                {jackerId && (
+                    <div style={{ marginTop: '10px', fontSize: '0.9rem', color: '#f59e0b' }}>
+                        * This player has been added to both squads automatically.
+                    </div>
+                )}
+            </div>
+
+            {/* --- 3. Toss Section --- */}
             <div className="section-header">
                 <MdSportsCricket size={18} /> Toss Result
             </div>
             <div className="setup-card">
                 <div style={{ display: 'grid', gap: '1.5rem' }}>
-
-                    {/* Who won? */}
                     <div>
                         <label className="label-text">Who won the toss?</label>
                         <div className="selection-grid">
-                            <div
-                                className={`selection-btn ${tossWinner === "A" ? "active" : ""}`}
-                                onClick={() => setTossWinner("A")}
-                            >
+                            <div className={`selection-btn ${tossWinner === "A" ? "active" : ""}`} onClick={() => setTossWinner("A")}>
                                 {teamA || "Team A"}
                             </div>
-                            <div
-                                className={`selection-btn ${tossWinner === "B" ? "active" : ""}`}
-                                onClick={() => setTossWinner("B")}
-                            >
+                            <div className={`selection-btn ${tossWinner === "B" ? "active" : ""}`} onClick={() => setTossWinner("B")}>
                                 {teamB || "Team B"}
                             </div>
                         </div>
                     </div>
 
-                    {/* Decision? */}
                     {tossWinner && (
                         <div>
                             <label className="label-text">Elected to?</label>
                             <div className="selection-grid">
-                                <div
-                                    className={`selection-btn ${tossDecision === "bat" ? "active" : ""}`}
-                                    onClick={() => setTossDecision("bat")}
-                                >
-                                    <MdSportsCricket size={20} />
-                                    <span>Bat First</span>
+                                <div className={`selection-btn ${tossDecision === "bat" ? "active" : ""}`} onClick={() => setTossDecision("bat")}>
+                                    <MdSportsCricket size={20} /> <span>Bat First</span>
                                 </div>
-                                <div
-                                    className={`selection-btn ${tossDecision === "bowl" ? "active" : ""}`}
-                                    onClick={() => setTossDecision("bowl")}
-                                >
-                                    <MdSportsBaseball size={20} />
-                                    <span>Bowl First</span>
+                                <div className={`selection-btn ${tossDecision === "bowl" ? "active" : ""}`} onClick={() => setTossDecision("bowl")}>
+                                    <MdSportsBaseball size={20} /> <span>Bowl First</span>
                                 </div>
                             </div>
                         </div>
@@ -327,7 +352,7 @@ const MatchSetup = () => {
                 </div>
             </div>
 
-            {/* --- 3. Squad Selection --- */}
+            {/* --- 4. Squad Selection --- */}
             <div className="section-header">
                 <MdGroups size={18} /> Select Squads
             </div>
@@ -345,7 +370,9 @@ const MatchSetup = () => {
                     <div className="roster-box custom-scroll">
                         {allPlayers.map(player => {
                             const isSelected = teamAPlayers.some(p => p.id === player.id);
-                            const isDisabled = teamBPlayers.some(p => p.id === player.id);
+                            // Disable logic: Disabled if in Team B AND not the jacker
+                            const isDisabled = teamBPlayers.some(p => p.id === player.id) && player.id !== jackerId;
+                            const isJacker = player.id === jackerId;
 
                             return (
                                 <div
@@ -353,11 +380,11 @@ const MatchSetup = () => {
                                     className={`player-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
                                     onClick={() => !isDisabled && togglePlayer(player, "A")}
                                 >
-                                    <span style={{ fontSize: '0.9rem' }}>{player.name}</span>
-                                    {isSelected ?
-                                        <MdCheckCircle color="var(--accent)" /> :
-                                        <MdRadioButtonUnchecked color="#555" />
-                                    }
+                                    <span style={{ fontSize: '0.9rem', display: 'flex', alignItems: 'center' }}>
+                                        {player.name}
+                                        {isJacker && <span className="jacker-badge">J</span>}
+                                    </span>
+                                    {isSelected ? <MdCheckCircle color="var(--accent)" /> : <MdRadioButtonUnchecked color="#555" />}
                                 </div>
                             );
                         })}
@@ -376,7 +403,9 @@ const MatchSetup = () => {
                     <div className="roster-box custom-scroll">
                         {allPlayers.map(player => {
                             const isSelected = teamBPlayers.some(p => p.id === player.id);
-                            const isDisabled = teamAPlayers.some(p => p.id === player.id);
+                            // Disable logic: Disabled if in Team A AND not the jacker
+                            const isDisabled = teamAPlayers.some(p => p.id === player.id) && player.id !== jackerId;
+                            const isJacker = player.id === jackerId;
 
                             return (
                                 <div
@@ -385,11 +414,11 @@ const MatchSetup = () => {
                                     onClick={() => !isDisabled && togglePlayer(player, "B")}
                                     style={isSelected ? { borderColor: 'rgba(59, 130, 246, 0.3)', background: 'rgba(59, 130, 246, 0.1)' } : {}}
                                 >
-                                    <span style={{ fontSize: '0.9rem' }}>{player.name}</span>
-                                    {isSelected ?
-                                        <MdCheckCircle color="#3b82f6" /> :
-                                        <MdRadioButtonUnchecked color="#555" />
-                                    }
+                                    <span style={{ fontSize: '0.9rem', display: 'flex', alignItems: 'center' }}>
+                                        {player.name}
+                                        {isJacker && <span className="jacker-badge">J</span>}
+                                    </span>
+                                    {isSelected ? <MdCheckCircle color="#3b82f6" /> : <MdRadioButtonUnchecked color="#555" />}
                                 </div>
                             );
                         })}
