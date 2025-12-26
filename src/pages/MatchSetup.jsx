@@ -20,7 +20,7 @@ const MatchSetup = () => {
 
     const [teamA, setTeamA] = useState("");
     const [teamB, setTeamB] = useState("");
-    const [overs, setOvers] = useState(20);
+    const [overs, setOvers] = useState(6);
     const [tossWinner, setTossWinner] = useState("");
     const [tossDecision, setTossDecision] = useState("");
 
