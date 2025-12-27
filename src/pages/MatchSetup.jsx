@@ -17,9 +17,9 @@ import "../App.css";
 
 const MatchSetup = () => {
     const navigate = useNavigate();
-
-    const [teamA, setTeamA] = useState("");
-    const [teamB, setTeamB] = useState("");
+    
+    const [teamA, setTeamA] = useState("Satyamev A");
+    const [teamB, setTeamB] = useState("Satyamev B");
     const [overs, setOvers] = useState(6);
     const [tossWinner, setTossWinner] = useState("");
     const [tossDecision, setTossDecision] = useState("");
@@ -147,7 +147,7 @@ const MatchSetup = () => {
                     background: rgba(0,0,0,0.2);
                     border: 1px solid var(--border);
                     padding: 12px 16px;
-                    border-radius: 8px;
+                    border-radius: 8px !important;
                     color: white;
                     font-size: 1rem;
                     outline: none;
